@@ -11,38 +11,48 @@ BROKER = "broker.emqx.io"
 CLIENT_ID = "esp32_artemis_car_servo"
 TOPIC = b"artemis/robot/command" 
 
-# --- CẤU HÌNH SERVO MG90S (Đã đổi sang chân 19) ---
+# --- CẤU HÌNH SERVO MG90S ---
 servo = PWM(Pin(18), freq=50)
 
-# Các mốc góc bẻ lái
 ANGLE_STRAIGHT = 90
-ANGLE_LEFT = 130   
-ANGLE_RIGHT = 50 
+ANGLE_LEFT = 120    
+ANGLE_RIGHT = 60
 
-def set_servo_angle(angle):
-    # Ép góc (0-180 độ) sang Duty Cycle (40-115) cho xung PWM 50Hz
-    min_duty = 40
-    max_duty = 115
-    duty = int(min_duty + (angle / 180) * (max_duty - min_duty))
-    servo.duty(duty)
+# Biến toàn cục để nhớ vị trí bánh xe hiện tại
+current_angle = ANGLE_STRAIGHT 
 
-# --- CẤU HÌNH L298N (Cập nhật chân PWM để giảm tốc) ---
-# ENA, IN1, IN2, IN3, IN4, ENB -> 25, 26, 27, 14, 12, 13
-ena = PWM(Pin(25), freq=1000) # Đổi sang dùng PWM với tần số 1000Hz
+# ---> HÀM BẺ LÁI MƯỢT (SMOOTH SERVO) <---
+def smooth_servo(target_angle):
+    global current_angle
+    # Nếu góc đã đúng rồi thì bỏ qua
+    if current_angle == target_angle:
+        return
+        
+    # Tính bước nhảy (tăng hoặc giảm)
+    step = 1 if target_angle > current_angle else -1
+    
+    # Chạy vòng lặp bẻ từng độ một
+    for angle in range(current_angle, target_angle + step, step):
+        min_duty = 40
+        max_duty = 115
+        duty = int(min_duty + (angle / 180) * (max_duty - min_duty))
+        servo.duty(duty)
+        # THAY ĐỔI ĐỘ MƯỢT TẠI ĐÂY:
+        # Tăng số này lên (vd: 0.02) thì servo xoay càng chậm và êm
+        time.sleep(0.01) 
+        
+    # Cập nhật lại vị trí hiện tại
+    current_angle = target_angle
+
+# --- CẤU HÌNH L298N ---
+ena = PWM(Pin(32), freq=1000) 
 in1 = Pin(26, Pin.OUT)
 in2 = Pin(27, Pin.OUT)
 in3 = Pin(14, Pin.OUT)
 in4 = Pin(12, Pin.OUT)
-enb = PWM(Pin(13), freq=1000) # Đổi sang dùng PWM
+enb = PWM(Pin(13), freq=1000)
 
-# ==========================================
-# BIẾN CHỈNH TỐC ĐỘ XE (Từ 0 đến 1023)
-# 1023 là max ga, 0 là dừng. 
-# Anh em cứ set tầm 500 - 700 là xe đi tà tà cực êm và dễ bẻ lái.
-# ==========================================
-CAR_SPEED = 300  
-
-# Cấp xung tốc độ cho 2 động cơ
+CAR_SPEED = 600  
 ena.duty(CAR_SPEED)
 enb.duty(CAR_SPEED)
 
@@ -58,30 +68,41 @@ def stop_car():
     in1.value(0); in2.value(0)
     in3.value(0); in4.value(0)
 
-# --- HÀM XỬ LÝ KHI NHẬN ĐƯỢC LỆNH TỪ LAPTOP ---
+# --- HÀM XỬ LÝ LỆNH TỪ AI ---
 def mqtt_callback(topic, msg):
     command = msg.decode('utf-8')
     print("ESP32 nhận lệnh:", command)
     
+    # TỐI ƯU TRÌNH TỰ: Luôn khóa 2 bánh sau lại trước khi chuyển hướng
+    stop_car() 
+    
     if command == "FORWARD":
-        set_servo_angle(ANGLE_STRAIGHT) # Trả lái thẳng
-        drive_forward()                 # Bánh sau đẩy tới
+        smooth_servo(ANGLE_STRAIGHT) # Trả lái từ từ về thẳng
+        drive_forward()              # Rồi mới đẩy tới
         
     elif command == "BACKWARD":
-        set_servo_angle(ANGLE_STRAIGHT) # Trả lái thẳng
-        drive_backward()                # Bánh sau kéo lùi
+        smooth_servo(ANGLE_STRAIGHT)
+        drive_backward()             
         
     elif command == "LEFT":
-        set_servo_angle(ANGLE_LEFT)     # Bẻ lái trái
-        drive_forward()                 # Bánh sau vẫn đẩy tới để xe di chuyển
+        smooth_servo(ANGLE_LEFT)     # Bẻ từ từ sang trái
+        drive_forward()              # Bẻ xong mới truyền động đẩy xe đi
         
     elif command == "RIGHT":
-        set_servo_angle(ANGLE_RIGHT)    # Bẻ lái phải
-        drive_forward()                 # Bánh sau vẫn đẩy tới
+        smooth_servo(ANGLE_RIGHT)    
+        drive_forward()
+        
+    elif command == "BACK_LEFT":
+        smooth_servo(ANGLE_LEFT)     # Bẻ lái trái
+        drive_backward()             # Bánh sau kéo lùi
+        
+    elif command == "BACK_RIGHT":
+        smooth_servo(ANGLE_RIGHT)    # Bẻ lái phải
+        drive_backward()             # Bánh sau kéo lùi    
         
     elif command == "STOP":
-        set_servo_angle(ANGLE_STRAIGHT) # Trả thẳng bánh
-        stop_car()                      # Tắt động cơ sau
+        smooth_servo(ANGLE_STRAIGHT) # Trả bánh thẳng thớm cất xe 
+        # (Không cần gọi stop_car nữa vì đã ngắt ở trên cùng rồi)
 
 # --- KẾT NỐI WIFI ---
 print("Đang kết nối WiFi...")
@@ -99,8 +120,9 @@ client.connect()
 client.subscribe(TOPIC)
 print("Đã đăng ký kênh MQTT. Chờ lệnh điều khiển...")
 
-# Reset trạng thái ban đầu khi mới bật điện
-set_servo_angle(ANGLE_STRAIGHT)
+# Reset hệ thống
+set_servo_angle = smooth_servo # Ánh xạ hàm cũ cho khởi tạo
+smooth_servo(ANGLE_STRAIGHT)
 stop_car() 
 
 # --- VÒNG LẶP CHÍNH ---
