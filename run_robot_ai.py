@@ -37,12 +37,13 @@ def draw_hand_landmarks(image, hand_landmarks):
         cv2.circle(image, (int(lm.x * w), int(lm.y * h)), 4, (0, 0, 255), -1)
 
 # --- CẤU HÌNH MQTT ---
-BROKER = "broker.emqx.io" # Trạm trung chuyển miễn phí
-PORT = 1883
-TOPIC = "artemis/robot/command" # Tên kênh của nhóm mình (phải độc nhất)
+# Mặc định là broker local trên máy đang chạy Python/MQTTX.
+BROKER = os.environ.get("MQTT_BROKER", "192.168.88.106").strip() or "127.0.0.1"
+PORT = int(os.environ.get("MQTT_PORT", "1883"))
+TOPIC = os.environ.get("MQTT_TOPIC", "artemis/robot/command").strip() or "artemis/robot/command"
 
 # Khởi tạo kết nối
-print("Đang kết nối tới trạm MQTT...")
+print(f"Đang kết nối tới MQTT broker {BROKER}:{PORT} ...")
 mqtt_client = mqtt.Client()
 mqtt_client.connect(BROKER, PORT, 60)
 mqtt_client.loop_start()

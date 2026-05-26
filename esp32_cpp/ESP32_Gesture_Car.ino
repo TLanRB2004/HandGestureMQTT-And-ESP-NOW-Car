@@ -5,7 +5,8 @@
 // WiFi and MQTT config
 const char* WIFI_SSID = "TEN_WIFI_CUA_BAN";
 const char* WIFI_PASS = "MAT_KHAU_WIFI_CUA_BAN";
-const char* BROKER = "broker.emqx.io";
+// Đổi thành IP LAN của máy đang chạy MQTT broker local.
+const char* BROKER = "192.168.1.100";
 const uint16_t PORT = 1883;
 const char* CLIENT_ID = "esp32_artemis_car_servo_cpp";
 const char* TOPIC = "artemis/robot/command";

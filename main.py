@@ -7,7 +7,9 @@ from machine import Pin, PWM
 WIFI_SSID = "TEN_WIFI_CUA_BAN"
 WIFI_PASS = "MAT_KHAU_WIFI_CUA_BAN"
 
-BROKER = "broker.emqx.io"
+# IP của máy đang chạy MQTT broker local trong mạng LAN.
+# Không dùng localhost vì ESP32 phải kết nối tới máy tính thật.
+BROKER = "192.168.1.100"
 CLIENT_ID = "esp32_artemis_car_servo"
 TOPIC = b"artemis/robot/command" 
 
