@@ -37,15 +37,23 @@ def draw_hand_landmarks(image, hand_landmarks):
         cv2.circle(image, (int(lm.x * w), int(lm.y * h)), 4, (0, 0, 255), -1)
 
 # --- CẤU HÌNH MQTT ---
-# Mặc định là broker local trên máy đang chạy Python/MQTTX.
-BROKER = os.environ.get("MQTT_BROKER", "192.168.88.106").strip() or "127.0.0.1"
+# Mặc định là broker local trên chính máy đang chạy Python/MQTTX.
+# Nếu broker của bạn đã bind ra mạng LAN, hãy ghi đè bằng biến môi trường MQTT_BROKER.
+BROKER = os.environ.get("MQTT_BROKER", "127.0.0.1").strip() or "127.0.0.1"
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
 TOPIC = os.environ.get("MQTT_TOPIC", "artemis/robot/command").strip() or "artemis/robot/command"
 
 # Khởi tạo kết nối
 print(f"Đang kết nối tới MQTT broker {BROKER}:{PORT} ...")
 mqtt_client = mqtt.Client()
-mqtt_client.connect(BROKER, PORT, 60)
+try:
+    mqtt_client.connect(BROKER, PORT, 60)
+except ConnectionRefusedError as exc:
+    raise SystemExit(
+        f"Không kết nối được tới MQTT broker {BROKER}:{PORT}. "
+        "Nếu broker chỉ nghe ở localhost, hãy dùng 127.0.0.1. "
+        "Nếu muốn ESP32 truy cập từ mạng LAN, broker phải lắng nghe trên IP LAN hoặc 0.0.0.0 và mở port 1883 trên firewall."
+    ) from exc
 mqtt_client.loop_start()
 print("Đã kết nối MQTT thành công!")
 

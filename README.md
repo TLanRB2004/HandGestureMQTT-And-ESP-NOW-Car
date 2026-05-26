@@ -10,6 +10,7 @@ Repo này chỉ giữ 2 firmware cho xe:
 - `MQTTX` trên máy tính có thể publish trực tiếp vào broker local bằng payload plain text như `STOP`, `FORWARD`, `LEFT`.
 - Nếu broker chạy trên chính máy Windows của bạn, PC client có thể dùng `127.0.0.1:1883`.
 - ESP32 không dùng `localhost`; hãy nhập IP LAN của máy chạy broker, ví dụ `192.168.1.20`.
+- Cấu hình chi tiết Mosquitto: xem [README_Mosquitto.md](README_Mosquitto.md).
 
 ## MicroPython firmware
 
