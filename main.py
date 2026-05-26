@@ -4,8 +4,8 @@ from umqtt.simple import MQTTClient
 from machine import Pin, PWM
 
 # --- CẤU HÌNH WIFI & MQTT ---
-WIFI_SSID = "34 Nguyen Tao 2g" 
-WIFI_PASS = "0905344352"
+WIFI_SSID = "TEN_WIFI_CUA_BAN"
+WIFI_PASS = "MAT_KHAU_WIFI_CUA_BAN"
 
 BROKER = "broker.emqx.io"
 CLIENT_ID = "esp32_artemis_car_servo"
@@ -52,9 +52,14 @@ in3 = Pin(14, Pin.OUT)
 in4 = Pin(12, Pin.OUT)
 enb = PWM(Pin(13), freq=1000)
 
-CAR_SPEED = 600  
-ena.duty(CAR_SPEED)
-enb.duty(CAR_SPEED)
+CAR_SPEED_NORMAL = 600
+CAR_SPEED_SLOW = 350
+
+def set_speed(speed):
+    ena.duty(speed)
+    enb.duty(speed)
+
+set_speed(CAR_SPEED_NORMAL)
 
 def drive_forward():
     in1.value(0); in2.value(1)
@@ -70,11 +75,20 @@ def stop_car():
 
 # --- HÀM XỬ LÝ LỆNH TỪ AI ---
 def mqtt_callback(topic, msg):
-    command = msg.decode('utf-8')
-    print("ESP32 nhận lệnh:", command)
+    command_raw = msg.decode('utf-8')
+    print("ESP32 nhận lệnh:", command_raw)
+
+    is_slow = False
+    command = command_raw
+    if command_raw.endswith("_SLOW"):
+        is_slow = True
+        command = command_raw[:-5]  # bỏ "_SLOW"
     
     # TỐI ƯU TRÌNH TỰ: Luôn khóa 2 bánh sau lại trước khi chuyển hướng
     stop_car() 
+
+    # Chỉnh tốc độ theo lệnh (SLOW / NORMAL)
+    set_speed(CAR_SPEED_SLOW if is_slow else CAR_SPEED_NORMAL)
     
     if command == "FORWARD":
         smooth_servo(ANGLE_STRAIGHT) # Trả lái từ từ về thẳng

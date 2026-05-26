@@ -1,1 +1,5 @@
 .venv/
+__pycache__/
+*.pyc
+dataset_cuchi_backup_*.csv
+gesture_model_backup_*.pkl
