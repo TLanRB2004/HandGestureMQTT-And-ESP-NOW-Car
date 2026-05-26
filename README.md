@@ -159,6 +159,8 @@ Pin phần cứng theo code hiện tại:
 
 Khi board chạy, nó sẽ kết nối WiFi, subscribe topic MQTT và nhận lệnh điều khiển xe.
 
+Nếu bạn muốn dùng bản C++/Arduino thay cho MicroPython, xem mục 10 ở cuối file.
+
 ### Thư viện MicroPython cần có trên board
 
 - `umqtt.simple`
@@ -204,3 +206,61 @@ Nếu board chưa có `umqtt.simple`, bạn cần upload file tương ứng từ
 3. Chạy `train_model.py` để tạo model.
 4. Chạy `run_robot_ai.py` để test điều khiển qua MQTT.
 5. Nạp `main.py` lên ESP32 để xe nhận lệnh.
+
+## 10. Phiên bản C++ (Arduino IDE) cho ESP32
+
+Nếu bạn muốn firmware xe chạy bằng C++ thay vì MicroPython, hãy dùng file:
+
+- `esp32_cpp/ESP32_Gesture_Car.ino`
+
+Phiên bản này giữ nguyên giao thức MQTT và logic điều khiển như `main.py`, nên phần AI trên máy tính không cần thay đổi.
+
+### Thư viện cần cài trong Arduino IDE
+
+- Board package: `esp32` của Espressif
+- `PubSubClient`
+- `ESP32Servo`
+
+### Cách cài nhanh
+
+1. Mở Arduino IDE.
+2. Vào `File > Preferences` và thêm URL board ESP32 nếu máy chưa có.
+3. Vào `Tools > Board > Boards Manager`, cài `esp32`.
+4. Vào `Sketch > Include Library > Manage Libraries`, cài `PubSubClient` và `ESP32Servo`.
+5. Mở file `esp32_cpp/ESP32_Gesture_Car.ino`.
+6. Sửa `WIFI_SSID`, `WIFI_PASS`, `BROKER`, `CLIENT_ID`, `TOPIC` nếu cần.
+7. Chọn đúng board ESP32 và cổng COM rồi bấm upload.
+
+### Lệnh MQTT được hỗ trợ
+
+- `STOP`
+- `FORWARD`
+- `LEFT`
+- `RIGHT`
+- `BACKWARD`
+- `BACK_LEFT`
+- `BACK_RIGHT`
+- `FORWARD_SLOW`
+- `LEFT_SLOW`
+- `RIGHT_SLOW`
+- `BACKWARD_SLOW`
+- `BACK_LEFT_SLOW`
+- `BACK_RIGHT_SLOW`
+
+### Sơ đồ chân phần cứng
+
+| Thiết bị | GPIO |
+|---|---|
+| Servo | `18` |
+| L298N `ENA` | `32` |
+| L298N `IN1` | `26` |
+| L298N `IN2` | `27` |
+| L298N `IN3` | `14` |
+| L298N `IN4` | `12` |
+| L298N `ENB` | `13` |
+
+### Ghi chú cho bản C++
+
+- Mặc định firmware dùng `broker.emqx.io` và topic `artemis/robot/command`.
+- Tốc độ motor và góc servo đã được set để khớp với bản MicroPython.
+- Khi board mất mạng, code sẽ tự thử kết nối lại.
