@@ -319,6 +319,16 @@ Nếu broker chạy trên máy tính của bạn, `BROKER` phải là IP LAN c�
 | L298N `IN3` | `14` |
 | L298N `IN4` | `12` |
 | L298N `ENB` | `13` |
+| HC-SR04 `TRIG` | `19` |
+| HC-SR04 `ECHO` | `21` |
+
+### 9.4. Cảm biến HC-SR04 và tránh vật cản
+
+- Nếu phát hiện vật cản gần (mặc định 20 cm), servo sẽ về thẳng 90 độ và xe lùi một chút.
+- Ngưỡng khoảng cách và thời gian lùi có thể chỉnh trong code:
+	- MicroPython: `OBSTACLE_CM`, `REVERSE_MS` trong [main.py](main.py)
+	- Arduino IDE: `OBSTACLE_CM`, `REVERSE_MS` trong [esp32_cpp/ESP32_Gesture_Car.ino](esp32_cpp/ESP32_Gesture_Car.ino)
+- Echo pin dùng interrupt để đo độ rộng xung chính xác hơn.
 
 ## 10. Firmware C++ cho Arduino IDE
 

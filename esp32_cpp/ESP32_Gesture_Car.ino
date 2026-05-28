@@ -25,6 +25,15 @@ static const int IN3_PIN = 14;
 static const int IN4_PIN = 12;
 static const int ENB_PIN = 13;
 
+// Ultrasonic sensor HC-SR04
+static const int TRIG_PIN = 19;
+static const int ECHO_PIN = 21;
+static const int OBSTACLE_CM = 20;
+static const uint16_t REVERSE_MS = 300;
+static const uint16_t PING_INTERVAL_MS = 60;
+static const uint16_t PING_TIMEOUT_MS = 120;
+static const uint16_t AVOID_COOLDOWN_MS = 600;
+
 // PWM settings. Use 10-bit resolution to stay close to the MicroPython duty range.
 static const int PWM_FREQ = 1000;
 static const int PWM_RES_BITS = 10;
@@ -37,6 +46,14 @@ PubSubClient mqttClient(wifiClient);
 Servo steeringServo;
 
 int currentAngle = ANGLE_STRAIGHT;
+
+volatile uint32_t echoStartUs = 0;
+volatile uint32_t echoDurationUs = 0;
+volatile bool echoDone = false;
+volatile bool echoWaiting = false;
+
+unsigned long lastPingMs = 0;
+unsigned long lastAvoidMs = 0;
 
 void setMotorSpeed(int speed) {
   speed = constrain(speed, 0, PWM_MAX);
@@ -63,6 +80,49 @@ void stopCar() {
   digitalWrite(IN2_PIN, LOW);
   digitalWrite(IN3_PIN, LOW);
   digitalWrite(IN4_PIN, LOW);
+}
+
+void IRAM_ATTR echoIsr() {
+  if (digitalRead(ECHO_PIN) == HIGH) {
+    echoStartUs = micros();
+  } else {
+    uint32_t endUs = micros();
+    echoDurationUs = endUs - echoStartUs;
+    echoDone = true;
+    echoWaiting = false;
+  }
+}
+
+void triggerPing() {
+  echoDone = false;
+  echoWaiting = true;
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+}
+
+bool checkObstacle(float& distanceCm) {
+  if (!echoDone) {
+    return false;
+  }
+
+  noInterrupts();
+  uint32_t duration = echoDurationUs;
+  echoDone = false;
+  interrupts();
+
+  distanceCm = (duration * 0.0343f) / 2.0f;
+  return distanceCm > 0.0f && distanceCm < OBSTACLE_CM;
+}
+
+void avoidObstacle() {
+  smoothServo(ANGLE_STRAIGHT);
+  setMotorSpeed(CAR_SPEED_SLOW);
+  driveBackward();
+  delay(REVERSE_MS);
+  stopCar();
 }
 
 void smoothServo(int targetAngle) {
@@ -174,6 +234,11 @@ void setup() {
   pinMode(IN2_PIN, OUTPUT);
   pinMode(IN3_PIN, OUTPUT);
   pinMode(IN4_PIN, OUTPUT);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  digitalWrite(TRIG_PIN, LOW);
+
+  attachInterrupt(digitalPinToInterrupt(ECHO_PIN), echoIsr, CHANGE);
 
   ledcAttach(ENA_PIN, PWM_FREQ, PWM_RES_BITS);
   ledcAttach(ENB_PIN, PWM_FREQ, PWM_RES_BITS);
@@ -191,6 +256,25 @@ void setup() {
 }
 
 void loop() {
+  unsigned long nowMs = millis();
+  if (!echoWaiting && (nowMs - lastPingMs) >= PING_INTERVAL_MS) {
+    triggerPing();
+    lastPingMs = nowMs;
+  }
+
+  if (echoWaiting && (nowMs - lastPingMs) >= PING_TIMEOUT_MS) {
+    echoWaiting = false;
+  }
+
+  float distanceCm = 0.0f;
+  if (checkObstacle(distanceCm) && (nowMs - lastAvoidMs) >= AVOID_COOLDOWN_MS) {
+    lastAvoidMs = nowMs;
+    Serial.print("Obstacle detected: ");
+    Serial.print(distanceCm, 1);
+    Serial.println(" cm");
+    avoidObstacle();
+  }
+
   if (WiFi.status() != WL_CONNECTED) {
     connectWiFi();
   }

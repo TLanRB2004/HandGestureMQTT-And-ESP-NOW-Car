@@ -75,9 +75,68 @@ def stop_car():
     in1.value(0); in2.value(0)
     in3.value(0); in4.value(0)
 
+# --- CẢM BIẾN SIÊU ÂM HC-SR04 ---
+TRIG_PIN = 19
+ECHO_PIN = 21
+OBSTACLE_CM = 20
+REVERSE_MS = 300
+PING_INTERVAL_MS = 60
+PING_TIMEOUT_MS = 120
+
+trig = Pin(TRIG_PIN, Pin.OUT)
+trig.value(0)
+echo = Pin(ECHO_PIN, Pin.IN)
+
+echo_start_us = 0
+echo_duration_us = 0
+echo_done = False
+echo_waiting = False
+last_ping_ms = time.ticks_ms()
+
+
+def _echo_irq(pin):
+    global echo_start_us, echo_duration_us, echo_done, echo_waiting
+    if pin.value():
+        echo_start_us = time.ticks_us()
+    else:
+        echo_duration_us = time.ticks_diff(time.ticks_us(), echo_start_us)
+        echo_done = True
+        echo_waiting = False
+
+
+echo.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=_echo_irq)
+
+
+def trigger_ping():
+    global echo_waiting, echo_done
+    echo_done = False
+    echo_waiting = True
+    trig.value(0)
+    time.sleep_us(2)
+    trig.value(1)
+    time.sleep_us(10)
+    trig.value(0)
+
+
+def obstacle_detected():
+    global echo_done
+    if not echo_done:
+        return False
+    echo_done = False
+    distance_cm = (echo_duration_us * 0.0343) / 2
+    return 0 < distance_cm < OBSTACLE_CM
+
+
+def avoid_obstacle():
+    smooth_servo(ANGLE_STRAIGHT)
+    set_speed(CAR_SPEED_SLOW)
+    drive_backward()
+    time.sleep(REVERSE_MS / 1000)
+    stop_car()
+
 # --- HÀM XỬ LÝ LỆNH TỪ AI ---
 def mqtt_callback(topic, msg):
-    command_raw = msg.decode('utf-8')
+    command_raw = msg.decode('utf-8').strip()
     print("ESP32 nhận lệnh:", command_raw)
 
     is_slow = False
@@ -144,6 +203,18 @@ stop_car()
 # --- VÒNG LẶP CHÍNH ---
 try:
     while True:
+        now_ms = time.ticks_ms()
+        if (not echo_waiting) and time.ticks_diff(now_ms, last_ping_ms) >= PING_INTERVAL_MS:
+            trigger_ping()
+            last_ping_ms = now_ms
+
+        if echo_waiting and time.ticks_diff(now_ms, last_ping_ms) >= PING_TIMEOUT_MS:
+            echo_waiting = False
+
+        if obstacle_detected():
+            print("Phat hien vat can -> lui xe")
+            avoid_obstacle()
+
         client.check_msg()
         time.sleep(0.01)
 except KeyboardInterrupt:
