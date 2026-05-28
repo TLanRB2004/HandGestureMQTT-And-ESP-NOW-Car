@@ -3,7 +3,7 @@
 Dự án này dùng webcam để thu landmark bàn tay, train model nhận diện cử chỉ, sau đó gửi lệnh điều khiển xe qua MQTT tới ESP32. Repo hiện giữ 2 firmware chính:
 
 - `main.py`: firmware MicroPython
-- `esp32_cpp/ESP32_Gesture_Car.ino`: firmware C++ cho Arduino IDE
+- `esp32_cpp/ESP32_Gesture_Car/ESP32_Gesture_Car.ino`: firmware C++ cho Arduino IDE
 
 ## 1. Cấu trúc thư mục
 
@@ -12,7 +12,7 @@ Dự án này dùng webcam để thu landmark bàn tay, train model nhận diệ
 - `preview_dataset.py`: xuất ảnh xem trước landmark từ CSV
 - `run_robot_ai.py`: nhận diện cử chỉ theo thời gian thực và publish MQTT
 - `main.py`: firmware MicroPython cho ESP32
-- `esp32_cpp/ESP32_Gesture_Car.ino`: firmware C++ cho Arduino IDE
+- `esp32_cpp/ESP32_Gesture_Car/ESP32_Gesture_Car.ino`: firmware C++ cho Arduino IDE
 - `gesture_config.py`: ánh xạ nhãn số sang tên lệnh
 - `hand_landmarker.task`: model Hand Landmarker của MediaPipe
 - `dataset_cuchi.csv`: dataset landmark đã thu
@@ -46,7 +46,7 @@ Các gói trong `requirements.txt`:
 ### Trên ESP32
 
 - Nếu dùng MicroPython: cần `network`, `machine`, `umqtt.simple`
-- Nếu dùng Arduino IDE: cần board package `esp32`, thư viện `PubSubClient` và `ESP32Servo`
+- Nếu dùng Arduino IDE: cần board package `esp32`, thư viện `ESP32MQTTClient` và `ESP32Servo`
 
 ## 3. Cài đặt môi trường Python
 
@@ -327,24 +327,24 @@ Nếu broker chạy trên máy tính của bạn, `BROKER` phải là IP LAN c�
 - Nếu phát hiện vật cản gần (mặc định 20 cm), servo sẽ về thẳng 90 độ và xe lùi một chút.
 - Ngưỡng khoảng cách và thời gian lùi có thể chỉnh trong code:
 	- MicroPython: `OBSTACLE_CM`, `REVERSE_MS` trong [main.py](main.py)
-	- Arduino IDE: `OBSTACLE_CM`, `REVERSE_MS` trong [esp32_cpp/ESP32_Gesture_Car.ino](esp32_cpp/ESP32_Gesture_Car.ino)
+	- Arduino IDE: `OBSTACLE_CM`, `REVERSE_MS` trong [esp32_cpp/ESP32_Gesture_Car/ESP32_Gesture_Car.ino](esp32_cpp/ESP32_Gesture_Car/ESP32_Gesture_Car.ino)
 - Echo pin dùng interrupt để đo độ rộng xung chính xác hơn.
 
 ## 10. Firmware C++ cho Arduino IDE
 
-File: [esp32_cpp/ESP32_Gesture_Car.ino](esp32_cpp/ESP32_Gesture_Car.ino)
+File: [esp32_cpp/ESP32_Gesture_Car/ESP32_Gesture_Car.ino](esp32_cpp/ESP32_Gesture_Car/ESP32_Gesture_Car.ino)
 
 ### 10.1. Cần cài gì trong Arduino IDE
 
 - Board package `esp32` của Espressif
-- `PubSubClient`
+- `ESP32MQTTClient`
 - `ESP32Servo`
 
 ### 10.2. Cách nạp
 
 1. Mở Arduino IDE
 2. Cài board ESP32 nếu máy chưa có
-3. Cài `PubSubClient` và `ESP32Servo`
+3. Cài `ESP32MQTTClient` và `ESP32Servo`
 4. Mở file `.ino`
 5. Sửa `WIFI_SSID`, `WIFI_PASS`, `MQTT_BROKER_IP`, `MQTT_TOPIC` nếu cần
 6. Chọn đúng board và COM port

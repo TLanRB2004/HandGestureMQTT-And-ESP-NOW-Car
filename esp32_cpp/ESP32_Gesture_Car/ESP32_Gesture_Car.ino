@@ -1,12 +1,14 @@
 #include <WiFi.h>
-#include <PubSubClient.h>
+#include <ESP32MQTTClient.h>
 #include <ESP32Servo.h>
+#include <mqtt_client.h>
+#include <string>
 
 // WiFi and MQTT config
-const char* WIFI_SSID = "TEN_WIFI_CUA_BAN";
-const char* WIFI_PASS = "MAT_KHAU_WIFI_CUA_BAN";
+const char* WIFI_SSID = "VKU_Student";
+const char* WIFI_PASS = "Vku@2025";
 // Đổi thành IP LAN của máy đang chạy MQTT broker local.
-const char* BROKER = "192.168.1.100";
+const char* BROKER = "192.168.88.106";
 const uint16_t PORT = 1883;
 const char* CLIENT_ID = "esp32_artemis_car_servo_cpp";
 const char* TOPIC = "artemis/robot/command";
@@ -28,7 +30,7 @@ static const int ENB_PIN = 13;
 // Ultrasonic sensor HC-SR04
 static const int TRIG_PIN = 19;
 static const int ECHO_PIN = 21;
-static const int OBSTACLE_CM = 20;
+static const int OBSTACLE_CM = 10;
 static const uint16_t REVERSE_MS = 300;
 static const uint16_t PING_INTERVAL_MS = 60;
 static const uint16_t PING_TIMEOUT_MS = 120;
@@ -41,8 +43,7 @@ static const int PWM_MAX = 1023;
 static const int CAR_SPEED_NORMAL = 600;
 static const int CAR_SPEED_SLOW = 350;
 
-WiFiClient wifiClient;
-PubSubClient mqttClient(wifiClient);
+ESP32MQTTClient mqttClient;
 Servo steeringServo;
 
 int currentAngle = ANGLE_STRAIGHT;
@@ -54,6 +55,7 @@ volatile bool echoWaiting = false;
 
 unsigned long lastPingMs = 0;
 unsigned long lastAvoidMs = 0;
+bool mqttStarted = false;
 
 void setMotorSpeed(int speed) {
   speed = constrain(speed, 0, PWM_MAX);
@@ -184,13 +186,33 @@ void handleCommand(const String& rawCommand) {
   }
 }
 
-void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  String message;
-  for (unsigned int i = 0; i < length; ++i) {
-    message += static_cast<char>(payload[i]);
-  }
+void onMessage(const std::string &topic, const std::string &payload) {
+  (void)topic;
+  String message(payload.c_str());
   handleCommand(message);
 }
+
+void onMqttConnect(esp_mqtt_client_handle_t client) {
+  if (!mqttClient.isMyTurn(client)) {
+    return;
+  }
+
+  mqttClient.subscribe(TOPIC, onMessage);
+  Serial.print("Subscribed: ");
+  Serial.println(TOPIC);
+}
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
+esp_err_t handleMQTT(esp_mqtt_event_handle_t event) {
+  mqttClient.onEventCallback(event);
+  return ESP_OK;
+}
+#else
+void handleMQTT(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
+  auto *event = static_cast<esp_mqtt_event_handle_t>(event_data);
+  mqttClient.onEventCallback(event);
+}
+#endif
 
 void connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
@@ -212,19 +234,15 @@ void connectWiFi() {
 }
 
 void connectMQTT() {
-  while (!mqttClient.connected()) {
-    Serial.print("Connecting MQTT...");
-    if (mqttClient.connect(CLIENT_ID)) {
-      Serial.println("connected");
-      mqttClient.subscribe(TOPIC);
-      Serial.print("Subscribed: ");
-      Serial.println(TOPIC);
-    } else {
-      Serial.print("failed, state=");
-      Serial.println(mqttClient.state());
-      delay(2000);
-    }
+  if (mqttStarted) {
+    return;
   }
+
+  String uri = String("mqtt://") + BROKER + ":" + String(PORT);
+  mqttClient.setURI(uri.c_str());
+  mqttClient.setMqttClientName(CLIENT_ID);
+  mqttClient.loopStart();
+  mqttStarted = true;
 }
 
 void setup() {
@@ -247,8 +265,7 @@ void setup() {
 
   connectWiFi();
 
-  mqttClient.setServer(BROKER, PORT);
-  mqttClient.setCallback(mqttCallback);
+  connectMQTT();
 
   smoothServo(ANGLE_STRAIGHT);
   stopCar();
@@ -279,10 +296,8 @@ void loop() {
     connectWiFi();
   }
 
-  if (!mqttClient.connected()) {
+  if (!mqttClient.isConnected()) {
     connectMQTT();
   }
-
-  mqttClient.loop();
   delay(10);
 }
