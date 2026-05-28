@@ -53,6 +53,7 @@ in2 = Pin(27, Pin.OUT)
 in3 = Pin(14, Pin.OUT)
 in4 = Pin(12, Pin.OUT)
 enb = PWM(Pin(13), freq=1000)
+RIGHT_MOTOR_REVERSED = True
 
 CAR_SPEED_NORMAL = 600
 CAR_SPEED_SLOW = 350
@@ -65,11 +66,17 @@ set_speed(CAR_SPEED_NORMAL)
 
 def drive_forward():
     in1.value(0); in2.value(1)
-    in3.value(0); in4.value(1)
+    if RIGHT_MOTOR_REVERSED:
+        in3.value(1); in4.value(0)
+    else:
+        in3.value(0); in4.value(1)
 
 def drive_backward():
     in1.value(1); in2.value(0)
-    in3.value(1); in4.value(0)
+    if RIGHT_MOTOR_REVERSED:
+        in3.value(0); in4.value(1)
+    else:
+        in3.value(1); in4.value(0)
 
 def stop_car():
     in1.value(0); in2.value(0)

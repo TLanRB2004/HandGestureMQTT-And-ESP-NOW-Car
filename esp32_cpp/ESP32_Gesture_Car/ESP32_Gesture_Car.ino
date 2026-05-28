@@ -8,7 +8,7 @@
 const char* WIFI_SSID = "VKU_Student";
 const char* WIFI_PASS = "Vku@2025";
 // Đổi thành IP LAN của máy đang chạy MQTT broker local.
-const char* BROKER = "192.168.88.106";
+const char* BROKER = "192.168.137.1";
 const uint16_t PORT = 1883;
 const char* CLIENT_ID = "esp32_artemis_car_servo_cpp";
 const char* TOPIC = "artemis/robot/command";
@@ -26,12 +26,13 @@ static const int IN2_PIN = 27;
 static const int IN3_PIN = 14;
 static const int IN4_PIN = 12;
 static const int ENB_PIN = 13;
+static const bool RIGHT_MOTOR_REVERSED = true;
 
 // Ultrasonic sensor HC-SR04
 static const int TRIG_PIN = 19;
 static const int ECHO_PIN = 21;
-static const int OBSTACLE_CM = 10;
-static const uint16_t REVERSE_MS = 300;
+static const int OBSTACLE_CM = 5;
+static const uint16_t REVERSE_MS = 500;
 static const uint16_t PING_INTERVAL_MS = 60;
 static const uint16_t PING_TIMEOUT_MS = 120;
 static const uint16_t AVOID_COOLDOWN_MS = 600;
@@ -66,15 +67,19 @@ void setMotorSpeed(int speed) {
 void driveForward() {
   digitalWrite(IN1_PIN, LOW);
   digitalWrite(IN2_PIN, HIGH);
-  digitalWrite(IN3_PIN, LOW);
-  digitalWrite(IN4_PIN, HIGH);
+
+  bool rightForward = RIGHT_MOTOR_REVERSED ? false : true;
+  digitalWrite(IN3_PIN, rightForward ? LOW : HIGH);
+  digitalWrite(IN4_PIN, rightForward ? HIGH : LOW);
 }
 
 void driveBackward() {
   digitalWrite(IN1_PIN, HIGH);
   digitalWrite(IN2_PIN, LOW);
-  digitalWrite(IN3_PIN, HIGH);
-  digitalWrite(IN4_PIN, LOW);
+
+  bool rightForward = RIGHT_MOTOR_REVERSED ? true : false;
+  digitalWrite(IN3_PIN, rightForward ? LOW : HIGH);
+  digitalWrite(IN4_PIN, rightForward ? HIGH : LOW);
 }
 
 void stopCar() {
